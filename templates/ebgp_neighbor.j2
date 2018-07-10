@@ -1,0 +1,79 @@
+
+router bgp {{bgp_asn}}
+ {% for peer in bgp_ext_neighbors %}
+
+   {% for tenant in tenants %}
+     {% if peer.vrf == tenant.name %}
+    template peer {{tenant.name}}-{{peer.type|upper}}-PEER
+      {% if peer.type|upper == 'EXT' %}
+      remove-private-as
+      {% endif %}
+      bfd
+    {% if tenant.ipv4 == 1 %}
+      address-family ipv4 unicast
+        {% if peer.type|upper == 'EXT' %}
+        route-map {{ tenant.name }}-PEER-IPV4-OUT out
+        route-map IPV4-DEFAULT-ONLY in
+        {%endif%}
+        {% if peer.type|upper == 'LB' %}
+        route-map {{ tenant.name }}-LB-IPV4-IN in
+        route-map {{ tenant.name }}-LB-IPV4-OUT out
+        {%endif%}
+    {% endif %}
+    {% if tenant.ipv6 == 1 %}
+      address-family ipv6 unicast
+        {% if peer.type|upper == 'EXT' %}
+        route-map {{ tenant.name }}-PEER-IPV4-OUT out
+        route-map IPV4-DEFAULT-ONLY in
+        {%endif%}
+        {% if peer.type|upper == 'LB' %}
+        route-map {{ tenant.name }}-LB-IPV6-IN in
+        route-map {{ tenant.name }}-LB-IPV6-OUT out
+        {%endif%}
+    {% endif %}
+       vrf {{ peer.vrf }}
+        {% if peer.state == 'present' %}
+          neighbor {{ peer.peer_ip }}
+             description {{ peer.peer_name }}
+             inherit peer {{ peer.vrf }}-{{peer.type|upper}}-PEER
+             remote-as {{ peer.peer_as }}
+           {% if peer.admin_state == 'down' %}
+             shutdown
+           {% endif %}
+           {% if peer.admin_state == 'up' %}
+             no shutdown
+           {% endif %}
+        {% endif %}
+        {% if peer.state == 'absent' %}
+          no neighbor {{ peer.peer_ip }}
+        {% endif %}
+     {% endif %}
+   {% endfor %}
+
+   {% if peer.vrf == 'default' %}
+     {% if peer.state == 'present' %}
+       template peer DEFAULT-ext-peer
+         remove-private-as
+         bfd
+         address-family ipv4 unicast
+           route-map DEFAULT-PEER-IPV4-OUT out
+           route-map IPV4-DEFAULT-ONLY in
+         address-family ipv6 unicast
+           route-map DEFAULT-PEER-IPV6-OUT out
+           route-map IPV6-DEFAULT-ONLY in
+       neighbor {{ peer.peer_ip }}
+         description {{ peer.peer_name }}
+         inherit peer DEFAULT-{{peer.type|upper}}-PEER
+         remote-as {{ peer.peer_as }}
+       {% if peer.admin_state == 'down' %}
+         shutdown
+       {% endif %}
+       {% if peer.admin_state == 'up' %}
+         no shutdown
+       {% endif %}
+     {% endif %}
+     {% if peer.state == 'absent' %}
+       no neighbor {{ peer.peer_ip }}
+     {% endif %}
+   {% endif %}
+ {% endfor %}

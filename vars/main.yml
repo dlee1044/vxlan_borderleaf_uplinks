@@ -1,0 +1,20 @@
+#
+# System Leaf Config File
+# Peter Shuleski
+# peter.shuleski@t-mobile.com
+#
+nxos_provider:
+  username: "{{ user }}"
+  password: "{{ ansible_ssh_pass }}"
+  transport: nxapi
+  use_ssl: yes
+  validate_certs: no
+  timeout: 60
+  host: "{{ inventory_hostname }}"
+
+nxos_cli:
+  username: "{{ user }}"
+  password: "{{ ansible_ssh_pass }}"
+  transport: cli
+  timeout: 60
+  host: "{{ inventory_hostname }}"

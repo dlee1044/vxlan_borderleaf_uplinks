@@ -1,0 +1,69 @@
+
+  - name: Set date
+    set_fact:
+      change_date: "{{ ansible_date_time.date }}"
+
+#  - name: Check Existing CR backup
+#    nxos_command:
+#      commands:
+#        - "dir CR{{ change_request}}-{{ change_date }}.cfg | grep CR{{ change_request}}-{{ change_date }}.cfg"
+#      provider: "{{ nxos_cli }}"
+#    register: filecheck
+
+#    - name: Set SW version fact
+#      set_fact:
+#        running_sw_version: "{{ filecheck.stdout[0] | regex_findall('(CR{{ change_request}}-{{ change_date }}.cfg)') | first }}"
+
+#  - assert:
+#       that:
+#         - file_output[0] != "CR{{ change_request}}-{{ change_date }}.cfg"
+#       msg: "CR{{ change_request }} has already been run!  Delete file and try again. "
+
+  - block:
+    - name: Creating Checkpoint
+      nxos_rollback:
+        checkpoint_file: "{{ change_date }}_-_CR{{ change_request }}.cfg"
+        provider: "{{ nxos_cli }}"
+      register: rollback_checkpoint
+      when: bgp_ext_neighbors is defined
+
+    - name: configure eBGP vrf route-maps/prefix-lists
+      nxos_config:
+        src: ebgp_vrf_route-maps.j2
+        provider: "{{ nxos_provider }}"
+      when: bgp_ext_neighbors is defined
+
+    - name: configure eBGP default vrf route-maps/prefix-lists
+      nxos_config:
+        src: ebgp_default_route-maps.j2
+        provider: "{{ nxos_provider }}"
+      when: bgp_ext_neighbors is defined
+
+#    - name: configure eBGP VRF Peer-Templates
+#      nxos_config:
+#        src: ebgp_peer-group.j2
+#        provider: "{{ nxos_provider }}"
+#      when: bgp_ext_neighbors is defined
+
+    - name: configure eBGP VRF neighbors
+      nxos_config:
+        src: ebgp_neighbor.j2
+        provider: "{{ nxos_provider }}"
+      when: bgp_ext_neighbors is defined
+
+    - name: Configure BGP aggregate addresses
+      nxos_config:
+        src: ebgp_summary_adv.j2
+        provider: "{{ nxos_provider }}"
+      when: bgp_ext_neighbors is defined
+
+    - name: Configure LB prefix-lists and route-maps
+      nxos_config:
+        src: ebgp_LB_route-maps.j2
+        provider: "{{ nxos_provider }}"
+      when: bgp_ext_neighbors is defined
+
+    rescue:
+      - nxos_rollback:
+          rollback_to: "{{ change_request }}-{{ change_date }}.cfg"
+          provider: "{{ nxos_cli }}"

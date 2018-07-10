@@ -1,0 +1,24 @@
+router bgp {{bgp_asn}}
+{% for summary in bgp_ext_summary if summary.vrf.upper() == "DEFAULT" %}
+  address-family {{ summary.inet_proto.lower() }} unicast
+    {% if summary.state.lower() == "present" %}
+    aggregate-address {{ summary.cidr_subnet }}
+    {% endif %}
+    {% if summary.state.lower() == "absent" %}
+    no aggregate-address {{ summary.cidr_subnet }}
+    {% endif %}
+{% endfor %}
+
+{% for tenant in tenants %}
+{% for summary in bgp_ext_summary if summary.vrf == tenant.name %}
+  vrf {{ summary.vrf.upper() }}
+    address-family {{ summary.inet_proto.lower() }} unicast
+{% if summary.state.lower() == "present" %}
+      aggregate-address {{ summary.cidr_subnet }}
+{% endif %}
+{% if summary.state.lower() == "absent" %}
+      no aggregate-address {{ summary.cidr_subnet }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+

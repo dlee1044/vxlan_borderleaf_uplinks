@@ -1,0 +1,27 @@
+
+
+router bgp {{ bgp_asn }}
+{% for tenant in tenants %}
+  template peer {{tenant.name}}-ext-peer
+    remove-private-as
+    bfd
+{% if tenant.ipv4 == 1 %}
+    address-family ipv4 unicast
+      route-map {{ tenant.name }}-PEER-IPV4-OUT out
+      route-map IPV4-DEFAULT-ONLY in
+{% endif %}
+{% if tenant.ipv6 == 1 %}
+    address-family ipv6 unicast
+      route-map {{ tenant.name }}-PEER-IPV6-OUT out
+      route-map IPV6-DEFAULT-ONLY in
+{% endif %}
+{% endfor %}
+  template peer DEFAULT-ext-peer
+    remove-private-as
+    bfd
+    address-family ipv4 unicast
+      route-map DEFAULT-PEER-IPV4-OUT out
+      route-map IPV4-DEFAULT-ONLY in
+    address-family ipv6 unicast
+      route-map DEFAULT-PEER-IPV6-OUT out
+      route-map IPV6-DEFAULT-ONLY in

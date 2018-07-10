@@ -1,0 +1,29 @@
+ip prefix-list DEFAULT-IPV4-ROUTE seq 5 permit 0.0.0.0/0
+
+route-map IPV4-DEFAULT-ONLY permit 10
+  match ip address prefix-list DEFAULT-IPV4-ROUTE
+
+ipv6 prefix-list DEFAULT-IPV6-ROUTE seq 5 permit 0::/0
+
+route-map IPV6-DEFAULT-ONLY permit 10
+  match ipv6 address prefix-list DEFAULT-IPV6-ROUTE
+
+
+{% set all_routemaps = [] %}
+{% for tenant in tenants %}
+{% for summary in bgp_ext_summary if summary.vrf == tenant.name %}
+{% if summary.state =="present" %}
+ip prefix-list {{ summary.vrf }}-{{ summary.inet_proto.upper() }}-SUMMARY seq {{ loop.index }} permit {{summary.cidr_subnet}}
+{% endif %}
+{% if summary.state =="absent" %}
+no ip prefix-list {{ summary.vrf }}-{{ summary.inet_proto.upper() }}-SUMMARY seq {{ loop.index }} permit {{summary.cidr_subnet}}
+{% endif %}
+{% set x = all_routemaps.extend([{'vrf': summary.vrf, 'inet_proto': summary.inet_proto }]) %}
+{% endfor %}
+{% endfor %}
+
+
+{% for item in all_routemaps|unique %}
+route-map {{ item.vrf | upper }}-PEER-{{ item.inet_proto | upper }}-OUT permit 10
+  match ip address prefix-list {{ item.vrf }}-{{ item.inet_proto.upper() }}-SUMMARY
+{% endfor %}

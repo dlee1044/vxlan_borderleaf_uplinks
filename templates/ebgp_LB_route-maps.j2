@@ -1,0 +1,23 @@
+{% set combined_list = [] %}
+{% for tenant in tenants %}
+  {% for peer in bgp_ext_neighbors if peer.type == "LB" and peer.vrf == tenant.name %}
+  {% set x = combined_list.extend([{'vrf': tenant.name, 'type': peer.type}]) %}
+  {% endfor %}
+{% endfor %}
+
+{% for item in combined_list|unique %}
+ip prefix-list {{ item.vrf.upper() }}-LB-IPV4-IN seq 10 deny 192.168.255.0/30
+ip prefix-list {{ item.vrf.upper() }}-LB-IPV4-IN seq 15 permit 0.0.0.0/0 le 32
+ipv6 prefix-list {{ item.vrf.upper() }}-LB-IPV6-IN seq 10 permit 0::0/0 le 128
+{% endfor %}
+
+{% for item in combined_list|unique %}
+route-map {{ item.vrf.upper() }}-LB-IPV4-IN permit 10
+  match ip address {{ item.vrf.upper() }}-LB-IPV4-IN
+route-map {{ item.vrf.upper() }}-LB-IPV6-IN permit 10
+  match ip address {{ item.vrf.upper() }}-LB-IPV6-IN
+route-map {{ item.vrf.upper() }}-LB-IPV4-OUT permit 10
+  match ip address prefix-list DEFAULT-IPV4-ROUTE
+route-map {{ item.vrf.upper() }}-LB-IPV6-OUT permit 10
+  match ipv6 address prefix-list DEFAULT-IPV6-ROUTE
+{% endfor %}

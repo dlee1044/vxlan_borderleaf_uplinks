@@ -1,0 +1,16 @@
+{% set all_routemaps = [] %}
+{% for summary in bgp_ext_summary if "DEFAULT" == summary.vrf | upper %}
+ip prefix-list {{ summary.vrf.upper() }}-{{ summary.inet_proto.upper() }}-SUMMARY seq {{ loop.index }} permit {{summary.cidr_subnet}}
+{% set x = all_routemaps.extend([{'vrf': summary.vrf, 'inet_proto': summary.inet_proto }]) %}
+{% endfor %}
+
+{% for item in all_routemaps|unique %}
+{% if item.inet_proto.upper() == "IPV4" %}
+route-map {{ item.vrf | upper }}-PEER-{{ item.inet_proto | upper }}-OUT permit 10
+  match ip address prefix-list {{ item.vrf }}-{{ item.inet_proto.upper() }}-SUMMARY
+{% endif %}
+{% if item.inet_proto.upper() == "IPV6" %}
+route-map {{ item.vrf | upper }}-PEER-{{ item.inet_proto | upper }}-OUT permit 10
+  match ipv6 address prefix-list {{ item.vrf }}-{{ item.inet_proto.upper() }}-SUMMARY
+{% endif %}
+{% endfor %}
